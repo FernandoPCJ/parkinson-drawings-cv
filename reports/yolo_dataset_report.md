@@ -1,6 +1,6 @@
-# YOLO dataset report (v2)
+﻿# YOLO dataset report (v2)
 
-Root: `C:\Users\Fernando\.cache\kagglehub\datasets\cornelioac\parkinson-yolo-dataset\versions\5`
+Root: `cornelioac/parkinson-yolo-dataset` (Kaggle, version 5)
 
 ## Images per top-level folder and split
 
