@@ -7,9 +7,9 @@ waves with a baseline ladder, leakage-aware evaluation, Grad-CAM and ONNX export
 
 ## Status
 Work in progress, MVP target: early November 2026. Done: data audit and cleaning, evaluation
-protocol, baseline ladder up to a small CNN, and a leakage/shortcut audit of the CNN. Pending:
-transfer learning, ONNX export with a numerical-equivalence test and CPU latency, MLflow tracking,
-optional demo, source/license of the data, exploration notebook on the cleaned data.
+protocol, baseline ladder up to a small CNN, a leakage/shortcut audit of the CNN, ONNX export with a
+numerical-equivalence test and CPU latency, and MLflow tracking. Pending: transfer learning, optional
+demo, source/license of the data, exploration notebook on the cleaned data.
 
 ## Setup
 ```bash
@@ -106,11 +106,13 @@ ONNX (dynamic batch) and checks that ONNX Runtime reproduces the PyTorch logits 
 same decisions on 64 real drawings plus a blank page). It also times single-image CPU inference for both
 runtimes; results go to `reports/export.md`. These final models have no held-out evaluation: their expected
 quality is the cross-validated result above. `scripts/predict_onnx.py` scores one image with ONNX Runtime
-only (no PyTorch needed). The preprocessing (`src/parkinson_cv/inkmap.py`) is shared by training and inference.
+only (no PyTorch needed). Measured on the author's CPU: ONNX file 239 KB per model; max absolute
+logit difference to PyTorch 3.8e-06 with identical decisions on 65 test inputs; single-image latency
+(median of 200 runs) 0.27 ms with ONNX Runtime vs 1.7-1.9 ms with PyTorch. The preprocessing (`src/parkinson_cv/inkmap.py`) is shared by training and inference.
 
 Experiments are tracked with MLflow. `scripts/log_reports_to_mlflow.py` logs the numbers already written in
 `reports/*.md` (metrics and CI bounds, one run per table row) without re-training; browse them with
-`mlflow ui --backend-store-uri sqlite:///mlflow.db`.
+`mlflow ui --backend-store-uri sqlite:///mlflow.db` (if port 5000 is blocked on Windows, add `--port 5001`).
 
 ## Limitations & ethics
 - No subject identifiers: a subject-level split cannot be proven; blocked folds are only a
@@ -128,3 +130,8 @@ Experiments are tracked with MLflow. `scripts/log_reports_to_mlflow.py` logs the
   the main metric. The CNN was only run per drawing type, not pooled.
 - Confidence intervals treat images as independent and the models were trained once per fold.
 - Not a diagnostic tool and not clinically validated.
+
+![MLflow comparison of the spiral baseline ladder](docs/img/mlflow_compare.png)
+
+Spiral drawings, blocked 5-fold CV, point estimates (AUC-ROC, balanced accuracy): majority class, metadata, stroke features and the small CNN. Confidence intervals are in the results table above.
+
