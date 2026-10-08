@@ -24,6 +24,9 @@ from src.parkinson_cv.inkmap import ink_image, to_model_input  # noqa: E402
 
 def main(image: Path, dtype: str, model: Path | None, size: int = 128) -> int:
     import onnxruntime as ort
+    if not image.is_file():
+        print(f"image not found: {image}  (pass the real path of a drawing, in quotes if it has spaces)")
+        return 1
     model = model or ROOT / "models" / f"cnn_{dtype}.onnx"
     sess = ort.InferenceSession(str(model), providers=["CPUExecutionProvider"])
     x = to_model_input(ink_image(load_gray(str(image)), size))

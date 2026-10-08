@@ -90,7 +90,7 @@ def main(root: Path) -> int:
         records.append({"path": p, "top": rel[0] if len(rel) > 1 else ".",
                         "split": split_of(rel), "base": base, "aug": aug})
 
-    out = ["# YOLO dataset report (v2)", "", f"Root: `{root}`", ""]
+    out = ["# YOLO dataset report (v2)", "", f"Root: `{root.name}` (full path omitted on purpose)", ""]
 
     # ---- counts per top folder / split, originals vs augmented
     out += ["## Images per top-level folder and split", ""]
