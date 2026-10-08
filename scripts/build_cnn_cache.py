@@ -18,19 +18,13 @@ import sys
 from pathlib import Path
 
 import numpy as np
-from PIL import Image
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from src.parkinson_cv.features import load_gray  # noqa: E402
+from src.parkinson_cv.inkmap import ink_image  # noqa: E402,F401  (also used by tests)
 from src.parkinson_cv.splits import load_clean  # noqa: E402
-
-
-def ink_image(gray: np.ndarray, size: int) -> np.ndarray:
-    """Paper-relative ink map as uint8 (0 = paper, larger = darker ink), resized by averaging."""
-    ink = np.clip(float(np.median(gray)) - gray.astype(np.float32), 0, 255).astype(np.uint8)
-    return np.asarray(Image.fromarray(ink).resize((size, size), Image.BOX), dtype=np.uint8)
 
 
 def main(manifest: Path, size: int) -> int:
