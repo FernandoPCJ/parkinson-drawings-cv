@@ -11,3 +11,4 @@ onnx
 onnxruntime
 grad-cam
 pytest
+onnxscript

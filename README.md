@@ -46,6 +46,10 @@ python scripts/run_baseline_stroke.py --k 2 --tag _k2   # same coarse blocks for
 python scripts/check_cnn_neighbors.py data/processed/cnn_cache_128.npz
 python scripts/check_cnn_background.py data/processed/cnn_cache_128.npz
 python scripts/gradcam_cnn.py data/processed/cnn_cache_128.npz spiral   # also: wave
+# final models, ONNX export and tracking (see "Export and tracking" below)
+python scripts/train_final.py data/processed/cnn_cache_128.npz --mlflow
+python scripts/predict_onnx.py <drawing.png> spiral
+python scripts/log_reports_to_mlflow.py
 pytest -q
 ```
 
@@ -95,6 +99,18 @@ score falls from 0.82 to 0.48 across grey-frame terciles although the true parki
 pooled AUC (within-group AUC is higher than pooled). Second, the paper grain groups differ strongly in
 class balance (parkinson rate 0.41 / 0.77 / 0.45 on spirals, 0.53 / 0.71 / 0.48 on waves), which is
 compatible with different data sources, so a metadata-style signal exists in the data.
+
+## Export and tracking
+`scripts/train_final.py` trains one final CNN per drawing type on all usable drawings, exports it to
+ONNX (dynamic batch) and checks that ONNX Runtime reproduces the PyTorch logits (max absolute difference,
+same decisions on 64 real drawings plus a blank page). It also times single-image CPU inference for both
+runtimes; results go to `reports/export.md`. These final models have no held-out evaluation: their expected
+quality is the cross-validated result above. `scripts/predict_onnx.py` scores one image with ONNX Runtime
+only (no PyTorch needed). The preprocessing (`src/parkinson_cv/inkmap.py`) is shared by training and inference.
+
+Experiments are tracked with MLflow. `scripts/log_reports_to_mlflow.py` logs the numbers already written in
+`reports/*.md` (metrics and CI bounds, one run per table row) without re-training; browse them with
+`mlflow ui --backend-store-uri sqlite:///mlflow.db`.
 
 ## Limitations & ethics
 - No subject identifiers: a subject-level split cannot be proven; blocked folds are only a
