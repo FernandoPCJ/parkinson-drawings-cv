@@ -1,0 +1,13 @@
+numpy
+pandas
+pillow
+opencv-python-headless
+scikit-learn
+matplotlib
+torch
+torchvision
+mlflow
+onnx
+onnxruntime
+grad-cam
+pytest
