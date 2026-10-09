@@ -1,7 +1,7 @@
 # Problem statement
 
 > Research/engineering project. **Not a medical device; no diagnostic claims.**
-> Items marked **[CONFIRM]** must be checked by hand on the dataset page before publishing.
+> Data source, license and attribution: `docs/DATA.md`.
 
 ## Research question
 
@@ -17,7 +17,7 @@ Secondary: which drawing type (spiral, wave, or both together) carries more sign
 - Dataset: *Parkinson YOLO Dataset* (Kaggle, `cornelioac/parkinson-yolo-dataset`).
   Only the folder `YOLODatasetFull` (original images) is used. The folder
   `YOLODatasetFull_Augmented` is **not** used (see audit below).
-- Source, authors and **license: [CONFIRM on the Kaggle page]**. Provenance of the images is
+- Source, authors and **license: CC BY 4.0** as declared by the Kaggle publisher; the data are a compilation of four upstream sources (see `docs/DATA.md`), whose own licenses were not checked. Per-subject provenance of the images is
   undocumented: `dataset.yaml` points to a personal folder of the uploader and there are no
   subject codes. `data/raw/` is not versioned; the repo only holds download instructions.
 - Labels: one whole-image box per file (100% of boxes cover >= 90% of the image), i.e. this is
@@ -69,7 +69,7 @@ The authors' own split is not usable as a test set: after cleaning, its validati
 2. Deduplication is conservative (byte-identical, or thumbnail correlation >= 0.99 plus a
    pixel check). Rotated, cropped or otherwise transformed copies, and different drawings by
    the same person, are not detected.
-3. Provenance and license of the data are unclear **[CONFIRM]**.
+3. The data are a compilation of four upstream sources with different acquisition conditions (one of them named as augmented data); the publisher declares CC BY 4.0, but upstream licenses were not checked, overlap between sources was not checked, and there is no per-subject provenance (see `docs/DATA.md`).
 4. Small effective size after cleaning; confidence intervals will be wide, especially for
    healthy waves.
 5. A suspiciously high score is a trigger to look for leakage first.
@@ -105,6 +105,6 @@ Clinical claims, deployment in care settings, identifiable data, large models, p
 - [x] Dataset chosen, audited and cleaned (`scripts/`, `reports/`)
 - [x] Evaluation protocol defined (`splits.py` + tests)
 - [x] Preprocessing pipeline with tests
-- [ ] Source and license copied from the Kaggle page
+- [x] Source and license copied from the Kaggle page (`docs/DATA.md`)
 - [ ] `01_exploracao` notebook adapted to the cleaned manifest and run end to end
 - [ ] `pytest` green locally and in CI

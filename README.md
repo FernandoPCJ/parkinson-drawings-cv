@@ -9,7 +9,7 @@ waves with a baseline ladder, leakage-aware evaluation, Grad-CAM and ONNX export
 Work in progress, MVP target: early November 2026. Done: data audit and cleaning, evaluation
 protocol, baseline ladder up to a small CNN, a leakage/shortcut audit of the CNN, ONNX export with a
 numerical-equivalence test and CPU latency, and MLflow tracking. Pending: transfer learning, optional
-demo, source/license of the data, exploration notebook on the cleaned data.
+demo, exploration notebook on the cleaned data.
 
 ## Setup
 ```bash
@@ -114,11 +114,17 @@ Experiments are tracked with MLflow. `scripts/log_reports_to_mlflow.py` logs the
 `reports/*.md` (metrics and CI bounds, one run per table row) without re-training; browse them with
 `mlflow ui --backend-store-uri sqlite:///mlflow.db` (if port 5000 is blocked on Windows, add `--port 5001`).
 
+## Data and attribution
+The images are **not** included in this repository (`data/` is not versioned). They come from the Kaggle
+*Parkinson Yolo Dataset* by CornelioAC (https://www.kaggle.com/datasets/cornelioac/parkinson-yolo-dataset),
+declared by the publisher under CC BY 4.0. The publisher states that the data were compiled from other
+sources (listed in `docs/DATA.md`). The code in this repository is under the MIT license (`LICENSE`).
+
 ## Limitations & ethics
 - No subject identifiers: a subject-level split cannot be proven; blocked folds are only a
   proxy, so results are probably optimistic and say nothing about unseen patients.
 - Deduplication catches byte-identical and near-identical files, not rotated/cropped copies.
-- Data provenance and license are unclear (see `docs/problem_statement.md`).
+- The data are a compilation of four upstream sources with different acquisition conditions. The publisher declares CC BY 4.0, but the upstream licenses and the overlap between sources were not checked (see `docs/DATA.md`).
 - Small effective sample size; wide confidence intervals, especially for healthy waves.
 - The drawings appear to be cropped to their bounding box and resized to 512x512 by the dataset
   authors (the ink spans ~98% of the frame in every class), so absolute size and aspect ratio,
