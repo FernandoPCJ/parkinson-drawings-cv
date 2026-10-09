@@ -36,3 +36,41 @@ def leave_one_group_out(df, groups, fit_predict):
         preds[test] = p
         scores[test] = s
     return labels(df), preds, scores
+
+
+def grouped_folds(y, groups, k: int = 5, seed: int = 0) -> np.ndarray:
+    """Fold id (0..k-1) for every row, keeping every group (cluster of copies) inside ONE fold.
+
+    Stratified by label as far as the group sizes allow (sklearn StratifiedGroupKFold, shuffled with `seed`).
+    """
+    from sklearn.model_selection import StratifiedGroupKFold
+
+    y = np.asarray(y)
+    folds = np.full(len(y), -1, dtype=int)
+    splitter = StratifiedGroupKFold(n_splits=k, shuffle=True, random_state=seed)
+    for f, (_, test) in enumerate(splitter.split(np.zeros(len(y)), y, groups=np.asarray(groups))):
+        folds[test] = f
+    return folds
+
+
+def cluster_bootstrap_auc(y, scores, groups, n_boot: int = 500, seed: int = 0):
+    """AUC-ROC with a 95% CI that resamples whole groups (clusters of copies), not single images.
+
+    Images of one cluster are copies of the same drawing, so they are not independent: resampling them one by one
+    would make the interval far too narrow. Returns (point, low, high).
+    """
+    from .metrics import auc_roc
+
+    y, scores, groups = np.asarray(y), np.asarray(scores), np.asarray(groups)
+    point = auc_roc(y, scores)
+    ids, inverse = np.unique(groups, return_inverse=True)
+    members = [np.flatnonzero(inverse == g) for g in range(len(ids))]
+    rng = np.random.default_rng(seed)
+    vals = []
+    for _ in range(n_boot):
+        pick = rng.integers(0, len(ids), len(ids))
+        idx = np.concatenate([members[g] for g in pick])
+        if len(set(y[idx])) == 2:
+            vals.append(auc_roc(y[idx], scores[idx]))
+    lo, hi = np.quantile(vals, [0.025, 0.975])
+    return point, float(lo), float(hi)

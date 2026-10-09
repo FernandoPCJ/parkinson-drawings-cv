@@ -21,18 +21,9 @@ import pandas as pd
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
+from src.parkinson_cv.appearance import thumbnails  # noqa: E402,F401
 from src.parkinson_cv.metrics import auc_roc  # noqa: E402
 from src.parkinson_cv.splits import blocked_stratified_folds  # noqa: E402
-
-
-def thumbnails(X: np.ndarray, size: int = 32) -> np.ndarray:
-    """Average-pool to size x size, flatten, remove the mean and scale to unit length."""
-    n, h, w = X.shape
-    f = h // size
-    t = X[:, :size * f, :size * f].astype(np.float32).reshape(n, size, f, size, f).mean((2, 4))
-    t = t.reshape(n, -1)
-    t -= t.mean(1, keepdims=True)
-    return t / np.maximum(np.linalg.norm(t, axis=1, keepdims=True), 1e-8)
 
 
 def nearest_other_fold(T: np.ndarray, fold: np.ndarray):

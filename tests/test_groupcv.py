@@ -109,3 +109,13 @@ def test_script_with_cnn_adds_a_cnn_row_and_its_reference(tmp_path):
     assert mod.main(cache, strokes, tmp_path / "out", by="frame_mean", epochs=1, width=4, n_boot=20) == 0
     text = (tmp_path / "out" / "group_holdout_frame_mean.md").read_text(encoding="utf-8")
     assert "small CNN" in text and "blocked CV" in text
+
+
+def test_script_runs_with_an_ablated_input_and_includes_the_one_nn_row(tmp_path):
+    mod = _script()
+    cache, strokes = _fake_inputs(tmp_path)
+    assert mod.main(cache, strokes, tmp_path / "out", by="frame_mean", n_boot=20, skip_cnn=True,
+                    ablate="binary_crop") == 0
+    text = (tmp_path / "out" / "group_holdout_frame_mean_binary_crop.md").read_text(encoding="utf-8")
+    assert "Input: binary_crop" in text and "thumbnail 1-NN" in text
+    assert not (tmp_path / "out" / "group_holdout_frame_mean.md").exists()
