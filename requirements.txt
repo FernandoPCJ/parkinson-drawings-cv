@@ -12,3 +12,4 @@ onnxruntime
 grad-cam
 pytest
 onnxscript
+gradio

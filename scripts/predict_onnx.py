@@ -13,27 +13,23 @@ import argparse
 import sys
 from pathlib import Path
 
-import numpy as np
-
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from src.parkinson_cv.features import load_gray  # noqa: E402
-from src.parkinson_cv.inkmap import ink_image, to_model_input  # noqa: E402
+from src.parkinson_cv.inference import DISCLAIMER, load_session, score  # noqa: E402
 
 
 def main(image: Path, dtype: str, model: Path | None, size: int = 128) -> int:
-    import onnxruntime as ort
     if not image.is_file():
         print(f"image not found: {image}  (pass the real path of a drawing, in quotes if it has spaces)")
         return 1
     model = model or ROOT / "models" / f"cnn_{dtype}.onnx"
-    sess = ort.InferenceSession(str(model), providers=["CPUExecutionProvider"])
-    x = to_model_input(ink_image(load_gray(str(image)), size))
-    logit = float(sess.run(None, {"ink_map": x})[0][0])
-    prob = 1.0 / (1.0 + np.exp(-logit))
-    print(f"{image.name}: model score for 'parkinson' class = {prob:.3f} (logit {logit:+.2f})")
-    print("Research prototype only: not a medical device, no diagnostic meaning.")
+    if not model.is_file():
+        print(f"model not found: {model}  (run scripts/train_final.py first)")
+        return 1
+    res = score(load_session(model), image, size)
+    print(f"{image.name}: model score for 'parkinson' class = {res['prob']:.3f} (logit {res['logit']:+.2f})")
+    print(DISCLAIMER)
     return 0
 
 

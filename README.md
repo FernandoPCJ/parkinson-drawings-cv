@@ -8,8 +8,8 @@ waves with a baseline ladder, leakage-aware evaluation, Grad-CAM and ONNX export
 ## Status
 Work in progress, MVP target: early November 2026. Done: data audit and cleaning, evaluation
 protocol, baseline ladder up to a small CNN, a leakage/shortcut audit of the CNN, ONNX export with a
-numerical-equivalence test and CPU latency, and MLflow tracking. Pending: transfer learning, optional
-demo, exploration notebook on the cleaned data.
+numerical-equivalence test and CPU latency, and MLflow tracking, plus a Gradio demo. Pending: transfer learning,
+exploration notebook on the cleaned data.
 
 ## Setup
 ```bash
@@ -113,6 +113,20 @@ logit difference to PyTorch 3.8e-06 with identical decisions on 65 test inputs; 
 Experiments are tracked with MLflow. `scripts/log_reports_to_mlflow.py` logs the numbers already written in
 `reports/*.md` (metrics and CI bounds, one run per table row) without re-training; browse them with
 `mlflow ui --backend-store-uri sqlite:///mlflow.db` (if port 5000 is blocked on Windows, add `--port 5001`).
+
+## Demo
+`scripts/demo_gradio.py` is a small web app: upload a spiral or wave drawing, pick the type, and read the
+model score. It runs the exported ONNX models on CPU (no PyTorch) with the same preprocessing as training
+(`src/parkinson_cv/inference.py`). It needs `models/cnn_spiral.onnx` and `models/cnn_wave.onnx` from
+`scripts/train_final.py`.
+
+```bash
+pip install gradio
+python scripts/demo_gradio.py     # then open http://127.0.0.1:7860
+```
+
+Research prototype: not a medical device, no diagnosis. Use images that look like the dataset (cropped to the
+stroke) and do not upload drawings of real people without permission. Each model only knows its own drawing type: a spiral scored with the wave model (or the reverse) gives a meaningless but often very confident score, so pick the type carefully.
 
 ## Data and attribution
 The images are **not** included in this repository (`data/` is not versioned). They come from the Kaggle
