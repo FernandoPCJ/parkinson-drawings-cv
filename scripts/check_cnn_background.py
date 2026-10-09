@@ -31,22 +31,8 @@ import numpy as np
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
+from src.parkinson_cv.background import background_features  # noqa: E402,F401  (also used by tests)
 from src.parkinson_cv.metrics import auc_roc  # noqa: E402
-
-
-def background_features(X: np.ndarray, frame: float = 0.10, inner: float = 0.20):
-    """(frame_mean, speckle) for every image of X (n, H, W) uint8."""
-    n, h, w = X.shape
-    b = max(1, int(round(frame * h)))
-    mask = np.zeros((h, w), bool)
-    mask[:b] = mask[-b:] = True
-    mask[:, :b] = mask[:, -b:] = True
-    Xf = X.astype(np.float32)
-    frame_mean = Xf[:, mask].mean(1)
-    c = int(inner * h)
-    centre = Xf[:, c:h - c, c:w - c].reshape(n, -1)
-    speckle = ((centre >= 1) & (centre <= 10)).mean(1)
-    return frame_mean, speckle
 
 
 def safe_auc(y, s):
