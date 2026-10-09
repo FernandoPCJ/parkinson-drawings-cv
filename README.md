@@ -134,6 +134,28 @@ The images are **not** included in this repository (`data/` is not versioned). T
 declared by the publisher under CC BY 4.0. The publisher states that the data were compiled from other
 sources (listed in `docs/DATA.md`). The code in this repository is under the MIT license (`LICENSE`).
 
+## Held-out background groups
+The blocked CV above still puts every background style on both sides of each split. As a harder check,
+`scripts/run_group_holdout.py` cuts each drawing type into three groups by terciles of a background measure
+(paper grain `speckle`, or grey-frame `frame_mean`), holds one group out and trains on the other two.
+AUC-ROC inside the held-out groups, mean of the three (full tables with 95% CIs: `reports/group_holdout_*.md`):
+
+| type | grouped by | small CNN | stroke features (best of 2) | background numbers only | CNN, blocked CV |
+|---|---|---|---|---|---|
+| spiral | speckle | 0.828 | 0.714 | 0.522 | 0.869 |
+| spiral | frame_mean | 0.852 | 0.735 | 0.521 | 0.869 |
+| wave | speckle | 0.787 | 0.693 | 0.560 | 0.804 |
+| wave | frame_mean | 0.803 | 0.748 | 0.564 | 0.804 |
+
+The CNN keeps most of its AUC when a whole background style is unseen and stays above the stroke-feature
+baseline on average (spiral by about 0.11, wave by 0.05-0.09). For waves the margin is smaller, and in the
+`frame_mean` high group the CNN is not distinguishable from stroke geometry (0.779 vs 0.811, overlapping
+intervals). The background numbers alone are not always at chance inside a group (0.38 to 0.62 depending on the
+group, with an unstable sign), but they stay far below the CNN. These runs train on 2/3 of the data instead of
+4/5, which alone lowers AUC, so the drop is an upper bound of the effect of the shift. Groups are a crude
+stand-in for "a new source", there is one CNN seed, and the intervals treat images as independent: this is not
+evidence of generalisation to new patients.
+
 ## Limitations & ethics
 - No subject identifiers: a subject-level split cannot be proven; blocked folds are only a
   proxy, so results are probably optimistic and say nothing about unseen patients.
