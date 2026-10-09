@@ -6,17 +6,18 @@ waves with a baseline ladder, leakage-aware evaluation, Grad-CAM and ONNX export
 > **Not a medical device.** Educational/portfolio project. It makes no diagnostic claims.
 
 
-> **Correction (2026-10-09): near-duplicate images leaked across the folds of the evaluation in this README.**
+> **Correction (2026-10-09): near-duplicate images leaked across the folds of the evaluation in this README, and the label may be readable from who or where a drawing came from.**
 > An audit (`scripts/find_twins.py`, `reports/twins.md`) found that about 90% of the images have rotated or mirrored
-> copies of the same drawing, roughly 8 per drawing: the 1,839 spirals are about 412 distinct drawings and the 1,382
-> waves about 175. The blocked CV placed about 85% of those copy pairs in different folds. A baseline with no learning
+> copies of the same drawing, roughly 8 per drawing: the 1,839 spirals are about 345-412 distinct drawings and the 1,382
+> waves about 175-191. The blocked CV placed about 85% of those copy pairs in different folds. A baseline with no learning
 > (copy the label of the most similar training image) reached AUC 0.94-0.96 in the background hold-out, which exposed it.
-> Re-evaluated with copies kept together (`scripts/run_cluster_cv.py`, intervals resampling distinct drawings):
-> stroke features 0.74 (spiral) / 0.70 (wave); small CNN 0.84 / 0.80, close to its blocked-CV values (0.87 / 0.80);
-> the no-learning baseline 0.79 / 0.84, so the overall look of a drawing carries label information that cannot be
-> attributed to the disease rather than to the data source. An ImageNet-pretrained ResNet18 reaches 0.97 / 0.96 even
-> so; this is not explained yet and is not reported as a performance estimate. The hold-out numbers in `reports/` were
-> measured with copies on both sides of the split. There are no subject IDs, so none of this shows generalisation to new patients.
+> Re-evaluated with copies kept together (`scripts/run_cluster_cv.py`; copies found on binarised and cropped drawings, so
+> shifted and rescaled ones are linked too; intervals resample distinct drawings): stroke features 0.74 (spiral) / 0.71
+> (wave); small CNN 0.84 / 0.80, close to its blocked-CV values (0.87 / 0.80); ImageNet-pretrained ResNet18 0.97 / 0.96.
+> But the no-learning baseline, after cropping, reaches 0.88 / 0.93. A result that simple suggests the label can be read
+> from the overall look of a drawing, which can reflect the disease but equally the person (the sources may contain
+> several drawings per person) or the data source. The dataset has no subject or source IDs, so these cannot be
+> separated, and none of the numbers should be read as accuracy on new patients.
 ## Status
 Work in progress, MVP target: early November 2026. Done: data audit and cleaning, evaluation
 protocol, baseline ladder up to a small CNN, a leakage/shortcut audit of the CNN, ONNX export with a
