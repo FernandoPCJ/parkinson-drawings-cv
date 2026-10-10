@@ -21,8 +21,7 @@ waves with a baseline ladder, leakage-aware evaluation, Grad-CAM and ONNX export
 ## Status
 Work in progress, MVP target: early November 2026. Done: data audit and cleaning, evaluation
 protocol, baseline ladder up to a small CNN, a leakage/shortcut audit of the CNN, ONNX export with a
-numerical-equivalence test and CPU latency, and MLflow tracking, plus a Gradio demo. Pending: transfer learning,
-exploration notebook on the cleaned data.
+numerical-equivalence test and CPU latency, and MLflow tracking, plus a Gradio demo. A near-duplicate audit and a copy-grouped evaluation were added (see the correction above); transfer learning (ResNet18) was run and is reported with its caveats. Pending: exploration notebook on the cleaned data.
 
 ## Setup
 ```bash
@@ -59,6 +58,11 @@ python scripts/run_baseline_stroke.py --k 2 --tag _k2   # same coarse blocks for
 python scripts/check_cnn_neighbors.py data/processed/cnn_cache_128.npz
 python scripts/check_cnn_background.py data/processed/cnn_cache_128.npz
 python scripts/gradcam_cnn.py data/processed/cnn_cache_128.npz spiral   # also: wave
+# near-duplicate audit and copy-grouped evaluation (supersedes the blocked-CV numbers)
+python scripts/find_twins.py data/processed/cnn_cache_128.npz --on binary_crop
+python scripts/run_cluster_cv.py data/processed/cnn_cache_128.npz --cluster-on binary_crop --skip-cnn
+python scripts/run_cluster_cv.py data/processed/cnn_cache_128.npz --cluster-on binary_crop --model resnet18   # needs torchvision; downloads weights once
+python scripts/run_group_holdout.py data/processed/cnn_cache_128.npz --by frame_mean   # earlier hold-out; it leaks copies
 # final models, ONNX export and tracking (see "Export and tracking" below)
 python scripts/train_final.py data/processed/cnn_cache_128.npz --mlflow
 python scripts/predict_onnx.py <drawing.png> spiral
@@ -67,13 +71,49 @@ pytest -q
 ```
 
 ## Evaluation protocol
-Blocked stratified 5-fold CV over the deduplicated drawings (`src/parkinson_cv/splits.py`),
-spiral and wave modelled separately, sensitivity/specificity/AUC with bootstrap CIs.
+Headline: copy-grouped, label-stratified 5-fold CV (`scripts/run_cluster_cv.py`), where copies of the same drawing never sit on both sides of a split; AUC-ROC of the pooled out-of-fold scores with 95% CIs that resample distinct drawings. Spiral and wave are modelled separately. The earlier blocked CV (`src/parkinson_cv/splits.py`) is kept as a superseded result below.
 
 ## Results so far
-Blocked 5-fold CV (5 repeats) over the deduplicated drawings. Balanced accuracy / AUC-ROC;
-95% bootstrap CIs are in `reports/*.md` (images are treated as independent, so the CIs are
-optimistic).
+
+Headline evaluation: copy-grouped 5-fold CV (`scripts/run_cluster_cv.py`). Copies of the same drawing (rotated, mirrored,
+shifted or rescaled) are found on binarised and cropped drawings and kept inside one fold; the 1,839 spirals are about
+345 distinct drawings and the 1,382 waves about 191. AUC-ROC of the pooled out-of-fold scores, [95% CI resampling
+distinct drawings, not images]. Spiral and wave are modelled separately. No subject IDs exist (see the correction at the top).
+
+| Model | Spiral | Wave |
+|---|---|---|
+| Background numbers only (frame brightness, paper grain) | 0.519 [0.450-0.587] | 0.552 [0.458-0.635] |
+| Logistic regression, stroke geometry | 0.742 [0.678-0.808] | 0.665 [0.582-0.739] |
+| ...plus ink contrast and paper noise | 0.743 [0.678-0.807] | 0.710 [0.635-0.783] |
+| 1-NN on thumbnails, no learning (normal image) | 0.819 [0.760-0.878] | 0.854 [0.802-0.898] |
+| 1-NN on thumbnails, no learning (binarised and cropped) | 0.875 [0.822-0.920] | 0.926 [0.885-0.958] |
+| Small CNN from scratch (128 px ink map, 20 epochs)* | 0.842 [0.781-0.891] | 0.796 [0.727-0.858] |
+| ResNet18 pre-trained on ImageNet, fine-tuned (8 epochs) | 0.969 [0.943-0.990] | 0.961 [0.932-0.985] |
+
+\* The small CNN was run with copies found on the uncropped binarised drawings (412 spiral / 175 wave clusters); the
+other rows use the cropped detector (345 / 191). Fold assignments differ, so differences of about 0.03 are noise.
+
+How to read it:
+- The background numbers alone stay near chance, so the grey frame and paper grain are not what separates the classes here.
+- Stroke features reach 0.74 / 0.71. This is the hand-built reference.
+- **A baseline that learns nothing (copy the label of the most similar training drawing) reaches 0.88 / 0.93 once
+  position and size are removed.** It beats the hand-built features. The overall look of a drawing therefore carries the
+  label across distinct drawings. That can be the disease, but it can equally be the person (the sources may contain
+  several drawings per person) or the data source, and the dataset has no IDs to tell them apart.
+- The small CNN (0.84 / 0.80) is not clearly better than that baseline, and on waves it is worse.
+- The pre-trained ResNet18 (0.97 / 0.96) is far above everything. Lowering the copy threshold to 0.70 gives
+  0.938 / 0.935 and grouping copies after cropping gives 0.969 / 0.961, so near-copies do not explain it. It is not
+  explained, and it is not reported as a performance estimate.
+
+What this can and cannot show. It shows that images of distinct drawings can be sorted by class well above chance using
+overall appearance, and that simple models and networks agree on the direction. It cannot show that a model works on a
+new patient: without subject or source IDs, drawings by the same person or from the same source can sit on both sides of
+every split, and nothing here separates that from a disease signal.
+
+### Earlier results (blocked CV, superseded)
+
+The first evaluation used blocked 5-fold CV (`src/parkinson_cv/splits.py`, 5 repeats). It splits file-number blocks, but
+about 85% of the copy pairs ended up in different folds, so its numbers are optimistic. Balanced accuracy / AUC-ROC:
 
 | Rung | Model | Spiral | Wave | Pooled |
 |---|---|---|---|---|
@@ -81,37 +121,35 @@ optimistic).
 | 2a | Logistic regression on metadata only (paper brightness, ink share, file size, alpha channel) | 0.587 / 0.601 | 0.555 / 0.588 | 0.590 / 0.625 |
 | 2b | Logistic regression on stroke geometry (ink, thickness, crossings, spread) | 0.670 / 0.738 | 0.638 / 0.697 | 0.621 / 0.658 |
 | 2b+ | ...plus ink contrast and paper noise | 0.673 / 0.741 | 0.664 / 0.748 | 0.613 / 0.673 |
-| 3 | Small CNN from scratch (128 px paper-relative ink map, 20 epochs, light augmentation) | 0.747 / **0.869** | 0.711 / **0.804** | not run |
+| 3 | Small CNN from scratch (128 px paper-relative ink map, 20 epochs, light augmentation) | 0.747 / 0.869 | 0.711 / 0.804 | not run |
 
-CNN, 95% CI of AUC-ROC: spiral 0.869 [0.851-0.883], wave 0.804 [0.783-0.827]; sensitivity/specificity
-0.87/0.62 (spiral) and 0.84/0.58 (wave) at a fixed 0.5 threshold that was not tuned.
-Reading: rung 2a uses nothing about the hand, yet it clearly beats the floor, so the data has a
-weak side channel. Stroke features (2b) beat 2a by a wide margin (spiral AUC 0.74 vs 0.60), and
-contrast + paper noise alone stay near chance, so the signal comes from the drawing. The
-bar for image models is therefore about AUC 0.74 (spiral) and 0.75 (wave). Separate models per
-drawing type beat one pooled model. The small CNN beats the best stroke-feature model by about
-0.13 AUC on spirals and 0.06 on waves, with non-overlapping CIs; the five CV repeats agree with a
-single repeat (spiral 0.867, wave 0.809), so the result does not depend on where the blocks are cut.
+Rung 2a uses nothing about the hand, yet it clearly beats the floor, so the data has a weak side channel. Contrast and
+paper noise alone stay near chance. Separate models per drawing type beat one pooled model. The CNN row (AUC 0.869 and
+0.804) turned out close to the copy-grouped values above (0.842 and 0.796), so the small CNN did not depend much on copies.
 
-### Checks on the CNN result (is 0.87 real?)
-A jump from 0.74 to 0.87 deserved suspicion, so it was tested before being trusted. Numbers are AUC-ROC
-(spiral / wave), CNN trained with 1 repeat unless stated.
+### Checks run on the blocked-CV result, and what they missed
+
+The jump from 0.74 to 0.87 deserved suspicion, so it was tested before being trusted. Numbers are AUC-ROC (spiral / wave).
+Several checks passed and the result still turned out to be affected by copies, because the one check aimed at copies used a
+measure too coarse to see them.
 
 | Check | Result | What it says |
 |---|---|---|
 | Labels shuffled | 0.458 / 0.507 | Pipeline does not leak the label; chance level. |
-| Coarse blocks (2 folds, half the training data) | CNN 0.811 / 0.796 vs stroke model 0.733 / 0.750 | CNN still wins, but loses more than the stroke model (0.056 on spirals), so part of the drop may be proximity in file numbering; not separable from the smaller training set. |
-| Near-twins in other folds | AUC by similarity tercile low/mid/high: 0.865/0.834/0.899 (spiral), 0.878/0.817/0.806 (wave); only 1-2% of images have a neighbour with cosine similarity >= 0.95 | Gain does not come from near-duplicates (coarse 32 px measure; rotated or shifted copies would not be caught). |
+| Coarse blocks (2 folds, half the training data) | CNN 0.811 / 0.796 vs stroke model 0.733 / 0.750 | CNN still wins, but loses more than the stroke model. |
+| Near-twins in other folds, 32 px thumbnails of the raw ink map | AUC by similarity tercile 0.865/0.834/0.899 (spiral), 0.878/0.817/0.806 (wave); 1-2% of images with cosine >= 0.95 | **Missed the copies.** The background differs between copies, which hides them in raw thumbnails. On binarised drawings about 90% of the images have a copy. |
 | Outer 10% frame removed | 0.851 / 0.813 | Not dependent on the image border. |
-| Background style (grey frame, paper grain) | CNN AUC inside every background tercile: 0.79-0.95 | Separates classes among images with similar backgrounds, so it is not only reading the background. |
-| Grad-CAM (one held-out fold) | heat on stroke vs image: enrichment 1.22 (spiral), 0.97 (wave); 27% of the heat in the outer frame vs 36% if uniform | Spiral: mild preference for the stroke. Wave: no clear preference. The 8x8 map is coarse, so this is only an indication. |
+| Background style (grey frame, paper grain) | CNN AUC inside every background tercile: 0.79-0.95 | Separates classes among images with similar backgrounds. |
+| Grad-CAM (one held-out fold) | enrichment on the stroke 1.22 (spiral), 0.97 (wave) | Spiral: mild preference for the stroke. Wave: no clear preference. The 8x8 map is coarse. |
+| Copies grouped (`run_cluster_cv.py`) | CNN 0.842 / 0.796 | The small CNN barely depended on copies. |
+| Copy threshold lowered to 0.80 and 0.70 | 1-NN 0.746 / 0.819 and 0.740 / 0.809 (from 0.785 / 0.837 at 0.90); ResNet18 0.938 / 0.935 at 0.70 | No collapse; not explained by near-copies. |
+| Copies found after cropping | 1-NN 0.875 / 0.926 (cropped input); ResNet18 0.969 / 0.961 | Shifted or rescaled copies do not explain it either. |
 
-Two things the checks did find. First, the background is not neutral: on waves the mean CNN
-score falls from 0.82 to 0.48 across grey-frame terciles although the true parkinson rate stays
-0.52-0.66, which produces false positives on clean white paper; this lowers rather than inflates the
-pooled AUC (within-group AUC is higher than pooled). Second, the paper grain groups differ strongly in
-class balance (parkinson rate 0.41 / 0.77 / 0.45 on spirals, 0.53 / 0.71 / 0.48 on waves), which is
-compatible with different data sources, so a metadata-style signal exists in the data.
+Two things the early checks did find. First, the background is not neutral: on waves the mean CNN score falls from 0.82 to
+0.48 across grey-frame terciles although the true parkinson rate stays 0.52-0.66, which produces false positives on clean
+white paper; this lowers rather than inflates the pooled AUC. Second, the paper grain groups differ strongly in class
+balance (parkinson rate 0.41 / 0.77 / 0.45 on spirals, 0.53 / 0.71 / 0.48 on waves), which is compatible with different
+data sources, so a metadata-style signal exists in the data.
 
 ## Export and tracking
 `scripts/train_final.py` trains one final CNN per drawing type on all usable drawings, exports it to
@@ -147,43 +185,41 @@ The images are **not** included in this repository (`data/` is not versioned). T
 declared by the publisher under CC BY 4.0. The publisher states that the data were compiled from other
 sources (listed in `docs/DATA.md`). The code in this repository is under the MIT license (`LICENSE`).
 
-## Held-out background groups
-The blocked CV above still puts every background style on both sides of each split. As a harder check,
-`scripts/run_group_holdout.py` cuts each drawing type into three groups by terciles of a background measure
-(paper grain `speckle`, or grey-frame `frame_mean`), holds one group out and trains on the other two.
-AUC-ROC inside the held-out groups, mean of the three (full tables with 95% CIs: `reports/group_holdout_*.md`):
+## Held-out background groups (flawed experiment, kept for the record)
 
-| type | grouped by | small CNN | stroke features (best of 2) | background numbers only | CNN, blocked CV |
-|---|---|---|---|---|---|
-| spiral | speckle | 0.828 | 0.714 | 0.522 | 0.869 |
-| spiral | frame_mean | 0.852 | 0.735 | 0.521 | 0.869 |
-| wave | speckle | 0.787 | 0.693 | 0.560 | 0.804 |
-| wave | frame_mean | 0.803 | 0.748 | 0.564 | 0.804 |
+`scripts/run_group_holdout.py` cuts each drawing type into three groups by terciles of a background measure, holds one
+group out and trains on the other two. The idea was a harder test: a new background style at test time. It was not harder:
+copies of the same drawing sit in different groups in 10-16% of the twin pairs, and with about 8 copies per drawing almost
+every held-out image had a copy in training. What exposed it was a baseline that learns nothing. AUC-ROC inside the
+held-out groups, mean of the three, groups by `frame_mean`:
 
-The CNN keeps most of its AUC when a whole background style is unseen and stays above the stroke-feature
-baseline on average (spiral by about 0.11, wave by 0.05-0.09). For waves the margin is smaller, and in the
-`frame_mean` high group the CNN is not distinguishable from stroke geometry (0.779 vs 0.811, overlapping
-intervals). The background numbers alone are not always at chance inside a group (0.38 to 0.62 depending on the
-group, with an unstable sign), but they stay far below the CNN. These runs train on 2/3 of the data instead of
-4/5, which alone lowers AUC, so the drop is an upper bound of the effect of the shift. Groups are a crude
-stand-in for "a new source", there is one CNN seed, and the intervals treat images as independent: this is not
-evidence of generalisation to new patients.
+| Model | Spiral | Wave |
+|---|---|---|
+| Stroke features (best of 2) | 0.735 | 0.748 |
+| Small CNN | 0.852 | 0.803 |
+| ResNet18 pre-trained, normal input | 0.985 | 0.944 |
+| ResNet18 pre-trained, binarised input | 0.903 | 0.861 |
+| 1-NN on thumbnails, no learning (binarised input) | 0.938 | 0.964 |
+
+A model that copies the label of its nearest training image beat the small CNN and the binarised ResNet. These numbers
+were measured with copies on both sides of the split and are not performance estimates (see `reports/twins.md` and the
+copy-grouped results above).
 
 ## Limitations & ethics
 - No subject identifiers: a subject-level split cannot be proven; blocked folds are only a
   proxy, so results are probably optimistic and say nothing about unseen patients.
-- Deduplication catches byte-identical and near-identical files, not rotated/cropped copies.
+- Deduplication catches byte-identical and near-identical files only. About 90% of the remaining images still have rotated or mirrored copies of another image (roughly 8 per drawing, about 345 distinct spirals and 191 distinct waves). The headline evaluation keeps copies together, but copies below the detector's threshold may remain.
 - The data are a compilation of four upstream sources with different acquisition conditions. The publisher declares CC BY 4.0, but the upstream licenses and the overlap between sources were not checked (see `docs/DATA.md`).
 - Small effective sample size; wide confidence intervals, especially for healthy waves.
 - The drawings appear to be cropped to their bounding box and resized to 512x512 by the dataset
   authors (the ink spans ~98% of the frame in every class), so absolute size and aspect ratio,
   e.g. micrographia, cannot be measured.
-- Shortcut learning was checked (table above) but cannot be excluded: the background groups differ
+- Shortcut learning cannot be excluded: a nearest-neighbour baseline that learns nothing reaches 0.88 / 0.93 after cropping, so the label is readable from the overall look of a drawing, which may reflect the disease, the person or the data source; the dataset has no IDs to separate them. Grad-CAM on waves does not show a clear focus on the stroke.
   in class balance, and the checks use crude, three-level background measures. Grad-CAM on waves
   does not show a clear focus on the stroke.
 - The CNN's operating threshold (0.5) was not tuned; balanced accuracy is for reference, AUC is
   the main metric. The CNN was only run per drawing type, not pooled.
-- Confidence intervals treat images as independent and the models were trained once per fold.
+- Intervals in the headline table resample distinct drawings; older tables in this README treat images as independent and are optimistic. Models were trained once per fold with a single seed.
 - Not a diagnostic tool and not clinically validated.
 
 ![MLflow comparison of the spiral baseline ladder](docs/img/mlflow_compare.png)
