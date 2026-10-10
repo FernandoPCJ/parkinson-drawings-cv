@@ -215,8 +215,6 @@ copy-grouped results above).
   authors (the ink spans ~98% of the frame in every class), so absolute size and aspect ratio,
   e.g. micrographia, cannot be measured.
 - Shortcut learning cannot be excluded: a nearest-neighbour baseline that learns nothing reaches 0.88 / 0.93 after cropping, so the label is readable from the overall look of a drawing, which may reflect the disease, the person or the data source; the dataset has no IDs to separate them. Grad-CAM on waves does not show a clear focus on the stroke.
-  in class balance, and the checks use crude, three-level background measures. Grad-CAM on waves
-  does not show a clear focus on the stroke.
 - The CNN's operating threshold (0.5) was not tuned; balanced accuracy is for reference, AUC is
   the main metric. The CNN was only run per drawing type, not pooled.
 - Intervals in the headline table resample distinct drawings; older tables in this README treat images as independent and are optimistic. Models were trained once per fold with a single seed.
