@@ -29,7 +29,7 @@ from scipy.sparse.csgraph import connected_components
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from src.parkinson_cv.ablate import binarize  # noqa: E402
+from src.parkinson_cv.ablate import apply_ablation  # noqa: E402
 from src.parkinson_cv.appearance import thumbnails  # noqa: E402
 from src.parkinson_cv.background import background_features  # noqa: E402
 from src.parkinson_cv.groupcv import tercile_groups  # noqa: E402
@@ -65,7 +65,8 @@ def pair_stats(sim, tau, y, group, fold):
             float((fold[ii] != fold[jj]).mean()))
 
 
-def main(cache: Path, out_dir: Path | None = None, save_tau: float = 0.90, out_clusters: Path | None = None) -> int:
+def main(cache: Path, out_dir: Path | None = None, save_tau: float = 0.90, out_clusters: Path | None = None,
+         on: str = "binary") -> int:
     out_dir = out_dir or ROOT / "reports"
     z = np.load(cache)
     X = z["X"]
@@ -74,7 +75,7 @@ def main(cache: Path, out_dir: Path | None = None, save_tau: float = 0.90, out_c
     cluster_id = np.full(len(df), -1, dtype=int)
     next_id = 0
     lines = ["# Near-duplicate ('twin') audit on binarised drawings", "",
-             "Similarity: cosine on 32x32 thumbnails of the binarised ink map, best of 8 rotations / mirrors. "
+             f"Similarity: cosine on 32x32 thumbnails of the {'binarised and cropped (position and size removed)' if on == 'binary_crop' else 'binarised'} ink map, best of 8 rotations / mirrors. "
              "Groups = terciles of frame_mean (as in the background hold-out); folds = blocked 5-fold (offset 0).", ""]
     for dtype in ("spiral", "wave"):
         mask = (df["drawing_type"] == dtype).to_numpy()
@@ -82,7 +83,7 @@ def main(cache: Path, out_dir: Path | None = None, save_tau: float = 0.90, out_c
         y = (sub["diagnosis"] == "parkinson").to_numpy().astype(int)
         group = tercile_groups(background_features(X[mask])[0])
         fold = blocked_stratified_folds(sub, k=5, offset=0.0).to_numpy()
-        sim = dihedral_similarity(thumbnails(binarize(X[mask])))
+        sim = dihedral_similarity(thumbnails(apply_ablation(X[mask], on)))
         lines += [f"## {dtype} (n={len(sub)})", "",
                   f"best similarity to any other image: median {np.median(sim.max(1)):.3f}, "
                   f"p10 {np.quantile(sim.max(1), .1):.3f}", "",
@@ -109,8 +110,9 @@ def main(cache: Path, out_dir: Path | None = None, save_tau: float = 0.90, out_c
     text = "\n".join(lines)
     print(text)
     out_dir.mkdir(parents=True, exist_ok=True)
-    (out_dir / "twins.md").write_text(text, encoding="utf-8")
-    np.savez(out_clusters or ROOT / "data" / "processed" / "twin_clusters.npz", cluster=cluster_id,
+    (out_dir / ("twins.md" if on == "binary" else f"twins_{on}.md")).write_text(text, encoding="utf-8")
+    np.savez(out_clusters or ROOT / "data" / "processed" / ("twin_clusters.npz" if on == "binary" else f"twin_clusters_{on}.npz"),
+             cluster=cluster_id,
              tau=save_tau, class_name=z["class_name"], name_number=z["name_number"])
     return 0
 
@@ -118,6 +120,8 @@ def main(cache: Path, out_dir: Path | None = None, save_tau: float = 0.90, out_c
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("cache", type=Path)
+    ap.add_argument("--on", choices=["binary", "binary_crop"], default="binary",
+                    help="what the copy detector sees; binary_crop also removes position and size")
     ap.add_argument("--save-tau", type=float, default=0.90, help="threshold whose clusters are saved")
     a = ap.parse_args()
-    sys.exit(main(a.cache, save_tau=a.save_tau))
+    sys.exit(main(a.cache, save_tau=a.save_tau, on=a.on))

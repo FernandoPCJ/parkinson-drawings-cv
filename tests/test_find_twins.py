@@ -55,3 +55,16 @@ def test_script_writes_report_and_cluster_ids(tmp_path):
     assert "## spiral" in text and "different bg group" in text
     c = np.load(tmp_path / "clusters.npz")["cluster"]
     assert c[4] == c[5] and (c >= 0).all() and len(c) == 2 * n
+
+
+def test_a_shifted_and_rescaled_copy_is_only_found_when_the_detector_crops():
+    from src.parkinson_cv.ablate import apply_ablation
+    from src.parkinson_cv.appearance import thumbnails
+
+    X = _strokes(5)
+    small = np.zeros((64, 64), dtype=np.uint8)           # same drawing, half the size, in a corner
+    small[:32, :32] = X[0][::2, ::2]
+    X[3] = small
+    plain = _mod.dihedral_similarity(thumbnails(apply_ablation(X, "binary")))
+    cropped = _mod.dihedral_similarity(thumbnails(apply_ablation(X, "binary_crop")))
+    assert plain[0, 3] < 0.9 and cropped[0, 3] > 0.9

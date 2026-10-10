@@ -89,3 +89,20 @@ def test_script_reports_the_one_nn_near_chance_on_copies_with_random_labels(tmp_
     assert mod.main(tmp_path / "cache.npz", tmp_path / "strokes.csv", tmp_path / "out", n_boot=30, skip_cnn=True) == 0
     text = (tmp_path / "out" / "cluster_cv.md").read_text(encoding="utf-8")
     assert "60 distinct drawings" in text and "thumbnail 1-NN" in text and "Network skipped" in text
+
+
+def test_script_accepts_a_cropped_copy_detector_and_names_the_report_after_it(tmp_path):
+    mod = _script()
+    X, y, cl = _prototypes(n_proto=30, copies=6)
+    n = len(y)
+    dx = np.where(y == 1, "parkinson", "healthy")
+    meta = {"diagnosis": np.concatenate([dx, dx]), "drawing_type": np.array(["spiral"] * n + ["wave"] * n),
+            "class_name": np.concatenate([[f"{d}_spiral" for d in dx], [f"{d}_wave" for d in dx]]),
+            "name_number": np.concatenate([np.arange(n), np.arange(n)])}
+    np.savez(tmp_path / "cache.npz", X=np.concatenate([X, X]), **meta)
+    feats = pd.DataFrame(np.random.default_rng(3).normal(size=(2 * n, len(ALL_FEATURES))), columns=ALL_FEATURES)
+    pd.concat([pd.DataFrame(meta), feats], axis=1).to_csv(tmp_path / "strokes.csv", index=False)
+    assert mod.main(tmp_path / "cache.npz", tmp_path / "strokes.csv", tmp_path / "out", n_boot=20, skip_cnn=True,
+                    cluster_on="binary_crop") == 0
+    text = (tmp_path / "out" / "cluster_cv_clcrop.md").read_text(encoding="utf-8")
+    assert "CROPPED" in text and "distinct drawings" in text

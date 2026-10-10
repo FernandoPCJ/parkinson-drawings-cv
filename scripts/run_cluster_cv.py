@@ -38,23 +38,25 @@ def _load(name):
 _hold = _load("run_group_holdout")
 _twins = _load("find_twins")
 
-from src.parkinson_cv.ablate import apply_ablation, binarize  # noqa: E402
+from src.parkinson_cv.ablate import apply_ablation  # noqa: E402
 from src.parkinson_cv.appearance import thumbnails  # noqa: E402
 from src.parkinson_cv.groupcv import cluster_bootstrap_auc, grouped_folds, leave_one_group_out  # noqa: E402
 
 
 def main(cache: Path, stroke_csv: Path, out_dir: Path, tau: float = 0.90, k: int = 5, model: str = "cnn",
          epochs: int | None = None, width: int = 16, seeds: int = 1, n_boot: int = 500, skip_cnn: bool = False,
-         ablate: str = "none", seed: int = 0) -> int:
+         ablate: str = "none", seed: int = 0, cluster_on: str = "binary") -> int:
     if epochs is None:
         epochs = 20 if model == "cnn" else 8
     df, X0 = _hold.load_table(cache, stroke_csv)
     X = apply_ablation(X0, ablate)                       # what the networks / 1-NN see
     suffix = (("" if model == "cnn" else f"_{model.replace('-', '_')}") + ("" if ablate == "none" else f"_{ablate}")
-              + ("" if abs(tau - 0.90) < 1e-9 else f"_tau{int(round(tau * 100)):03d}"))
+              + ("" if abs(tau - 0.90) < 1e-9 else f"_tau{int(round(tau * 100)):03d}")
+              + ("" if cluster_on == "binary" else "_clcrop"))
     out_dir.mkdir(parents=True, exist_ok=True)
     lines = ["# Cluster-grouped cross-validation (copies never split across folds)", "",
-             f"Copies: cosine >= {tau:.2f} on 32x32 thumbnails of the binarised drawing, best of 8 rotations / mirrors, "
+             f"Copies: cosine >= {tau:.2f} on 32x32 thumbnails of the "
+             f"{'binarised and CROPPED (position and size removed)' if cluster_on == 'binary_crop' else 'binarised'} drawing, best of 8 rotations / mirrors, "
              f"joined into clusters. {k}-fold, whole clusters per fold, stratified by label, seed {seed}. "
              f"AUC-ROC of the pooled out-of-fold scores, [95% CI resampling CLUSTERS], {n_boot} resamples. "
              f"Input: {ablate}." + (" Network skipped." if skip_cnn else f" Network: {model}, {epochs} fixed epochs."), ""]
@@ -62,7 +64,7 @@ def main(cache: Path, stroke_csv: Path, out_dir: Path, tau: float = 0.90, k: int
         mask = (df["drawing_type"] == dtype).to_numpy()
         sub = df[mask].reset_index(drop=True)
         y = (sub["diagnosis"] == "parkinson").to_numpy().astype(int)
-        sim = _twins.dihedral_similarity(thumbnails(binarize(X0[mask])))
+        sim = _twins.dihedral_similarity(thumbnails(apply_ablation(X0[mask], cluster_on)))
         cluster = _twins.clusters(sim, tau)
         sizes = np.bincount(cluster)
         folds = grouped_folds(y, cluster, k=k, seed=seed)
@@ -101,6 +103,8 @@ if __name__ == "__main__":
     ap.add_argument("--k", type=int, default=5)
     ap.add_argument("--model", choices=["cnn", "resnet18", "resnet18-scratch"], default="cnn")
     ap.add_argument("--ablate", choices=_hold.ABLATIONS, default="none")
+    ap.add_argument("--cluster-on", choices=["binary", "binary_crop"], default="binary",
+                    help="what the copy detector sees; binary_crop also finds shifted / rescaled copies")
     ap.add_argument("--epochs", type=int, default=None)
     ap.add_argument("--width", type=int, default=16)
     ap.add_argument("--seeds", type=int, default=1)
@@ -109,4 +113,4 @@ if __name__ == "__main__":
     ap.add_argument("--skip-cnn", action="store_true", help="only the non-network rows (fast, no torch)")
     a = ap.parse_args()
     sys.exit(main(a.cache, a.stroke_csv, a.out_dir, a.tau, a.k, a.model, a.epochs, a.width, a.seeds, a.n_boot,
-                  a.skip_cnn, a.ablate, a.seed))
+                  a.skip_cnn, a.ablate, a.seed, a.cluster_on))
