@@ -19,9 +19,9 @@ waves with a baseline ladder, leakage-aware evaluation, Grad-CAM and ONNX export
 > several drawings per person) or the data source. The dataset has no subject or source IDs, so these cannot be
 > separated, and none of the numbers should be read as accuracy on new patients.
 ## Status
-Work in progress, MVP target: early November 2026. Done: data audit and cleaning, evaluation
+MVP complete (October 2026). Done: data audit and cleaning, evaluation
 protocol, baseline ladder up to a small CNN, a leakage/shortcut audit of the CNN, ONNX export with a
-numerical-equivalence test and CPU latency, and MLflow tracking, plus a Gradio demo. A near-duplicate audit and a copy-grouped evaluation were added (see the correction above); transfer learning (ResNet18) was run and is reported with its caveats. Pending: exploration notebook on the cleaned data.
+numerical-equivalence test and CPU latency, and MLflow tracking, plus a Gradio demo. A near-duplicate audit and a copy-grouped evaluation were added (see the correction above); transfer learning (ResNet18) was run and is reported with its caveats.
 
 ## Setup
 ```bash
