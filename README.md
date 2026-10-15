@@ -127,6 +127,10 @@ Rung 2a uses nothing about the hand, yet it clearly beats the floor, so the data
 paper noise alone stay near chance. Separate models per drawing type beat one pooled model. The CNN row (AUC 0.869 and
 0.804) turned out close to the copy-grouped values above (0.842 and 0.796), so the small CNN did not depend much on copies.
 
+![MLflow comparison of the spiral baseline ladder](docs/img/mlflow_compare.png)
+
+Spiral drawings, blocked 5-fold CV (superseded protocol), point estimates (AUC-ROC, balanced accuracy): majority class, metadata, stroke features and the small CNN.
+
 ### Checks run on the blocked-CV result, and what they missed
 
 The jump from 0.74 to 0.87 deserved suspicion, so it was tested before being trusted. Numbers are AUC-ROC (spiral / wave).
@@ -219,8 +223,4 @@ copy-grouped results above).
   the main metric. The CNN was only run per drawing type, not pooled.
 - Intervals in the headline table resample distinct drawings; older tables in this README treat images as independent and are optimistic. Models were trained once per fold with a single seed.
 - Not a diagnostic tool and not clinically validated.
-
-![MLflow comparison of the spiral baseline ladder](docs/img/mlflow_compare.png)
-
-Spiral drawings, blocked 5-fold CV, point estimates (AUC-ROC, balanced accuracy): majority class, metadata, stroke features and the small CNN. Confidence intervals are in the results table above.
 
